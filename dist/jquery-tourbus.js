@@ -89,19 +89,16 @@
         scrollContext: 100,
         orientation: 'bottom',
         align: 'left',
-        width: 'auto',
         margin: 10,
         top: null,
         left: null,
-        zindex: 9999,
+        extraClass: null,
         arrow: "50%"
       }
     };
-    /* Internal
-    */
+    /* Internal*/
 
     Bus = (function() {
-
       function Bus(el, options) {
         this.id = uniqueId();
         this.$target = $(options.target);
@@ -264,7 +261,6 @@
 
     })();
     Leg = (function() {
-
       function Leg(options) {
         this.bus = options.bus;
         this.rawData = options.rawData;
@@ -287,11 +283,11 @@
         var arrowClass, html;
         arrowClass = this.options.orientation === 'centered' ? '' : 'tourbus-arrow';
         this.$el.addClass(" " + arrowClass + " tourbus-arrow-" + this.options.orientation + " ");
+        if (this.options.extraClass) {
+          this.$el.addClass(this.options.extraClass);
+        }
         html = "<div class='tourbus-leg-inner'>\n  " + this.content + "\n</div>";
-        this.$el.css({
-          width: this.options.width,
-          zIndex: this.options.zindex
-        }).html(html);
+        this.$el.html(html);
         return this;
       };
 
@@ -307,6 +303,7 @@
 
       Leg.prototype._position = function() {
         var css, keys, rule, selector;
+        css = this._offsets();
         if (this.options.orientation !== 'centered') {
           rule = {};
           keys = {
@@ -318,12 +315,11 @@
           if (typeof this.options.arrow === 'number') {
             this.options.arrow += 'px';
           }
-          rule[keys[this.options.orientation]] = this.options.arrow;
+          rule[keys[this.options.orientation]] = this.$target.offset().left - css.left + (this.$target.outerWidth() / 2) + "px";
           selector = "#" + this.id + ".tourbus-arrow";
           this.bus._log("adding rule for " + this.id, rule);
           _addRule("" + selector + ":before, " + selector + ":after", rule);
         }
-        css = this._offsets();
         this.bus._log('setting offsets on leg', css);
         return this.$el.css(css);
       };
@@ -331,8 +327,7 @@
       Leg.prototype.show = function() {
         this.$el.css({
           visibility: 'visible',
-          opacity: 1.0,
-          zIndex: this.options.zindex
+          opacity: 1.0
         });
         return this.scrollIntoView();
       };
@@ -341,8 +336,7 @@
         if (this.bus.options.debug) {
           return this.$el.css({
             visibility: 'visible',
-            opacity: 0.4,
-            zIndex: 0
+            opacity: 0.4
           });
         } else {
           return this.$el.css({
@@ -372,8 +366,7 @@
         this.options.margin = _dataProp(this.rawData.margin, globalOptions.margin);
         this.options.arrow = this.rawData.arrow || globalOptions.arrow;
         this.options.align = this.rawData.align || globalOptions.align;
-        this.options.width = this.rawData.width || globalOptions.width;
-        this.options.zindex = this.rawData.zindex || globalOptions.zindex;
+        this.options.extraClass = this.rawData.extraclass || globalOptions.extraclass;
         return this.options.orientation = this.rawData.orientation || globalOptions.orientation;
       };
 
@@ -381,11 +374,8 @@
         this.id = "tourbus-leg-id-" + this.bus.id + "-" + this.options.index;
         this.$el = $("<div class='tourbus-leg'></div>");
         this.el = this.$el[0];
-        this.$el.attr({
+        return this.$el.attr({
           id: this.id
-        });
-        return this.$el.css({
-          zIndex: this.options.zindex
         });
       };
 
@@ -422,7 +412,7 @@
       };
 
       Leg.prototype._offsets = function() {
-        var dimension, elHalf, elHeight, elWidth, offsets, targetHalf, targetHeightOverride, validOrientations;
+        var dimension, elHalf, elHeight, elWidth, offsets, right, targetHalf, targetHeightOverride, validOrientations, winWidth;
         elHeight = this.$el.height();
         elWidth = this.$el.width();
         offsets = {};
@@ -480,6 +470,11 @@
           } else {
             offsets[dimension] -= elHalf - targetHalf;
           }
+        }
+        right = offsets.left + elWidth + 10;
+        winWidth = $(window).width();
+        if (offsets.left < 0 || right > winWidth) {
+          offsets.left = (winWidth - elWidth) / 2;
         }
         return offsets;
       };

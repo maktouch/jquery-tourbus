@@ -51,11 +51,10 @@
       scrollContext: 100
       orientation: 'bottom'
       align: 'left'
-      width: 'auto'
       margin: 10
       top: null
       left: null
-      zindex: 9999
+      extraClass: null
       arrow: "50%"
 
   ### Internal ###
@@ -201,12 +200,16 @@
     render: ->
       arrowClass = if @options.orientation == 'centered' then '' else 'tourbus-arrow'
       @$el.addClass( " #{arrowClass} tourbus-arrow-#{@options.orientation} " )
+
+      if @options.extraClass
+        @$el.addClass(@options.extraClass)
+
       html = """
         <div class='tourbus-leg-inner'>
           #{@content}
         </div>
       """
-      @$el.css( width: @options.width, zIndex: @options.zindex ).html( html )
+      @$el.html( html )
       return @
 
     destroy: ->
@@ -218,26 +221,30 @@
       @_position()
 
     _position: ->
+      css = @_offsets()
+
       # position arrow
       if @options.orientation != 'centered'
         rule = {}
         keys = top: 'left', bottom: 'left', left: 'top', right: 'top'
         @options.arrow += 'px' if typeof(@options.arrow) == 'number'
-        rule[keys[@options.orientation]] = @options.arrow
+
+        #ignore arrow option. Always put the arrow under the target element.
+        rule[keys[@options.orientation]] = @$target.offset().left - css.left + (@$target.outerWidth() / 2) + "px";
         selector = "##{@id}.tourbus-arrow"
         @bus._log "adding rule for #{@id}", rule
         _addRule( "#{selector}:before, #{selector}:after", rule )
 
-      css = @_offsets()
+      
       @bus._log 'setting offsets on leg', css
       @$el.css css
 
     show: ->
-      @$el.css visibility: 'visible', opacity: 1.0, zIndex: @options.zindex
+      @$el.css visibility: 'visible', opacity: 1.0
       @scrollIntoView()
     hide: ->
       if @bus.options.debug
-        @$el.css visibility: 'visible', opacity: 0.4, zIndex: 0
+        @$el.css visibility: 'visible', opacity: 0.4
       else
         @$el.css visibility: 'hidden'
 
@@ -257,8 +264,7 @@
       @options.margin = _dataProp( @rawData.margin, globalOptions.margin )
       @options.arrow = @rawData.arrow || globalOptions.arrow
       @options.align = @rawData.align || globalOptions.align
-      @options.width = @rawData.width || globalOptions.width
-      @options.zindex = @rawData.zindex || globalOptions.zindex
+      @options.extraClass = @rawData.extraclass || globalOptions.extraclass
       @options.orientation = @rawData.orientation || globalOptions.orientation
 
     _configureElement: ->
@@ -266,7 +272,6 @@
       @$el = $("<div class='tourbus-leg'></div>")
       @el = @$el[0]
       @$el.attr( id: @id )
-      @$el.css( zIndex: @options.zindex )
 
     _setupEvents: ->
       @$el.on 'click', '.tourbus-next', $.proxy( @bus.next, @bus )
@@ -346,6 +351,14 @@
           offsets[dimension] += (targetHalf - elHalf)
         else
           offsets[dimension] -= (elHalf - targetHalf)
+
+      # if the element is out of bound, just center it in the middle of the screen
+      # we add 10 pixel as "grace" pixels. We don't want the leg to be stuck to the screen. 
+      right = offsets.left + elWidth + 10
+      winWidth = $(window).width()
+
+      if offsets.left < 0 || right > winWidth
+         offsets.left = (winWidth - elWidth) / 2;
 
       return offsets
 
